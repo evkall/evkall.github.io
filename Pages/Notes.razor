@@ -1,53 +1,40 @@
 @page "/notes"
-@* @inject Markdown Md *@
+@inject HttpClient Http
 
-<h1>Notes</h1>
-
-@if (posts == null)
+@if (notes == null)
 {
     <p><em>Loading...</em></p>
 }
 else
 {
     <table class="table">
-        @* <thead>
+        @foreach (var post in data)
+        {
             <tr>
-                <th>Date</th>
-                <th>Temp. (C)</th>
-                <th>Temp. (F)</th>
-                <th>Summary</th>
+                @post
             </tr>
-        </thead> *@
-        <tbody>
-            @foreach (var forecast in forecasts)
-            {
-                <tr>
-                    <td>@forecast.Date.ToShortDateString()</td>
-                    <td>@forecast.TemperatureC</td>
-                    <td>@forecast.TemperatureF</td>
-                    <td>@forecast.Summary</td>
-                </tr>
-            }
-        </tbody>
+        }
     </table>
 }
 
 @code {
-    private Post[] posts;
+    private string[] notes;
+    private List<MarkupString> data = new List<MarkupString>();
 
     protected override async Task OnInitializedAsync()
     {
-        forecasts = await Http.GetFromJsonAsync<Post[]>("note-raw/weather.json");
+        notes = await Http.GetFromJsonAsync<string[]>("note-raw/note-names.json");
+        foreach (var note in notes)
+        {
+            data.Add(await toHtml(await Http.GetStringAsync($"note-raw/{note}")));
+        }
     }
 
-    public class Post
+    public async Task<MarkupString> toHtml(string data)
     {
-        public DateTime Date { get; set; }
-
-        public int TemperatureC { get; set; }
-
-        public string Summary { get; set; }
-
-        public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
+        var pipeline = new MarkdownPipelineBuilder().UseAdvancedExtensions().Build();
+        var result = await Task.Run(() => Markdown.ToHtml(data, pipeline));
+        
+        return (MarkupString)result;
     }
 }
